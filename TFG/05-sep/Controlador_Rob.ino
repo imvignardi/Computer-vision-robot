@@ -547,9 +547,9 @@ void loop() {
         else if(arrayReader==1) {
           if(loopStarted = false) {
             until_focus_confirm();
-            digitalWrite(10, HIGH); //START CAMERA
+            digitalWrite(12, HIGH); //START CAMERA
             delayMicroseconds(10000); //10ms DELAY, delayMicroseconds DOESNT USE TIMERS
-            digitalWrite(10, LOW); //NOT NEEDED HIGH AFTER STARTED
+            digitalWrite(12, LOW); //NOT NEEDED HIGH AFTER STARTED
           }
           obtainJointVariation(movType, saved_array[arrayReader][3], 0);
           arrayReader++;
@@ -1077,10 +1077,10 @@ void save_position() {
 //  saved_array[1][2] = 474; //
 //  saved_array[1][3] = 633; //
 //  myPositionInArray = 1; //
-  int a,b,c=0;
-  a=447+447;
-  b=-375-375;
-  c=0; //bidimensional
+//   int a,b,c=0;
+//   a=447+447;
+//   b=-375-375;
+//   c=0; //bidimensional
   
   if(myPositionInArray==0) {
     myPositionInArray++; //Pos=0 is the initial position
@@ -1143,11 +1143,11 @@ void until_focus_confirm() {
       check = Serial.read();
     }
     if(check==0x01) { //START FOCUS/ REFOCUS
-      digitalWrite(20, LOW);
-      digitalWrite(20, HIGH);
+      digitalWrite(14, LOW);
+      digitalWrite(14, HIGH);
     }
     else if(check==0x02) { //FOCUSED
-      digitalWrite(20, LOW);
+      digitalWrite(14, LOW);
       confirmed=true;
     }
   }
