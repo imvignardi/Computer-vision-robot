@@ -6,9 +6,10 @@
 #   Este código corresponde con el realizado para la fecha de entrega
 #   del TFG, Diseño y programación de un robot articulado filmográfico 
 #   con visión por computador  
+import sys, os
 
-import sys
 import time
+from PyQt5 import QtGui
 import serial
 import math
 import constants
@@ -19,44 +20,9 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from imutils.video import FPS
 
-inputFreq = [0, 0, 0, 0, 0, 0]
-nextInputFreq = [0, 0, 0, 0, 0, 0] #Used for programmed movement
-desiredPulses = [0, 0, 0, 0, 0, 0]
-nextDesiredPulses = [0, 0, 0, 0, 0, 0] #Used for programmed movement
-direction = [0, 0, 0, 0, 0, 0]
-nextDirection = [0, 0, 0, 0, 0, 0] #Used for programmed movement
-
-deltaArray = [0, 0, 0, 0, 0, 0]
-
-freqMove = 0
 
 controlByte = 0x00
-
 calibrated = False
-
-
-jointTimes = [0, 0, 0, 0, 0, 0]
-
-delta = 0
-
-prevX = constants.LENGTH_12B + constants.LENGTH_34
-prevY = 0
-prevZ = constants.LENGTH_12A + constants.LENGTH_23
-previousPitch = 90
-x = 0
-y = 0
-z = 0
-pitch = 0
-#0x00 stop joint movement
-#0x01 move joint
-#0x02 move linear
-#0x03 set position
-#0x04 erase positions
-#0xFF stop programmed movement
-#0xFE pause programmed movement
-#0xFD start programmed movement
-
-
 speedScaler = 0 #0.0 to 1.0 in 0.1 increments
 isFloat = False
 
@@ -71,18 +37,10 @@ class MainWindow(QWidget):
         self.initialFocus = False
         self.focused = False
         self.count=0
-        self.j1a = constants.INITIAL_ANG[0]
-        self.j2a = constants.INITIAL_ANG[1]
-        self.j3a = constants.INITIAL_ANG[2]
-        self.j4a = constants.INITIAL_ANG[3]
-        self.j5a = constants.INITIAL_ANG[4]
-        self.j6a = constants.INITIAL_ANG[5]
-        self.x = constants.LENGTH_12B + constants.LENGTH_34
-        self.y = 0
-        self.z = constants.LENGTH_12A + constants.LENGTH_23 - constants.LENGTH_WR
-        self.pitch = 90
-        self.remainder = [0,0,0,0,0,0]
+
         self.setWindowTitle("Robot Controller")
+        scriptDir = os.path.dirname(os.path.realpath(__file__))
+        self.setWindowIcon(QtGui.QIcon(scriptDir + os.path.sep + 'bot.jpg'))
                         
         self.initUI()
         
@@ -361,8 +319,9 @@ class MainWindow(QWidget):
         self.calibMsgBox.buttonClicked.connect(self.popup_actions)
         
         self.calibMsgBox2 = QMessageBox()
-        self.calibMsgBox2.setWindowTitle("cALIBRATION")
+        self.calibMsgBox2.setWindowTitle("Calibration")
         self.calibMsgBox2.setText("Robot calibration started.\nNo actions will be available until the process finishes")
+        self.calibMsgBox2.setStandardButtons(QMessageBox.Abort)
         
         self.posSavedMsgBox = QMessageBox()
         self.posSavedMsgBox.setWindowTitle("Saved")
@@ -376,14 +335,60 @@ class MainWindow(QWidget):
         self.focusCameraOk = QMessageBox()
         self.focusCameraOk.setWindowTitle("Focus confirmation")
         self.focusCameraOk.setText("Is the object focused?")
-#        self.focusCameraOk.buttonClicked.connect(self.popup_actions2)
+        # self.focusCameraOk.buttonClicked.connect(self.popup_actions2)
         self.focusCameraOk.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
         
         self.initiating = QMessageBox()
         self.initiating.setWindowTitle("Initiating")
         self.initiating.setText("Moving robot to the initial position, the window will close automatically.")
-        self.initiating.buttonClicked.connect(self.popup_actions_init)
+
+        self.savingPosMessage = QMessageBox()
+        self.savingPosMessage.setWindowTitle("Saving...")
+        self.savingPosMessage.setText("The controller is calculating, please wait")
+        self.savingPosMessage.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+
+        self.erasedAll = QMessageBox()
+        self.erasedAll.setWindowTitle("Positions removed")
+        self.erasedAll.setText("All positions have been removed from memory")
+
+        self.paused = QMessageBox()
+        self.paused.setWindowTitle("Robot movement paused")
+        self.paused.setText("The robot is paused, continue movement\nby pressing again the pause button")
+
+        self.resume = QMessageBox()
+        self.resume.setWindowTitle("Robot movement paused")
+        self.resume.setText("The robot is paused, continue movement\nby pressing again the pause button")
+
+        self.samePointMsg = QMessageBox()
+        self.samePointMsg.setWindowTitle("Error")
+        self.samePointMsg.setText("You can't save the same point as the previous one")
+        self.samePointMsg.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.samePointMsg.setIcon(QMessageBox.Icon.Warning)
+
+        self.immpossibleTrajMsg = QMessageBox()
+        self.immpossibleTrajMsg.setWindowTitle("Error")
+        self.immpossibleTrajMsg.setText("The robot cant do a trajectory between this point\nand the previous one.")
+        self.immpossibleTrajMsg.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.immpossibleTrajMsg.setIcon(QMessageBox.Icon.Warning)
+
+        self.zeroPointsMsg = QMessageBox()
+        self.zeroPointsMsg.setWindowTitle("Error")
+        self.zeroPointsMsg.setText("The robot cant do a trajectory, zero points saved.")
+        self.zeroPointsMsg.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.zeroPointsMsg.setIcon(QMessageBox.Icon.Warning)
         
+        self.notEnoughPointsMsg = QMessageBox()
+        self.notEnoughPointsMsg.setWindowTitle("Error")
+        self.notEnoughPointsMsg.setText("The robot cant do a trajectory, not enough\npoints saved.")
+        self.notEnoughPointsMsg.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.notEnoughPointsMsg.setIcon(QMessageBox.Icon.Warning)
+        
+        self.emergencyStop = QMessageBox()
+        self.emergencyStop.setWindowTitle("STOP")
+        self.emergencyStop.setText("The calibration has been aborted!")
+        self.emergencyStop.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.emergencyStop.setIcon(QMessageBox.Icon.Critical)
+
     def start_tracking(self):
         self.myThread.beginTrack()
         self.mainmenu.setEnabled(False)
@@ -421,10 +426,24 @@ class MainWindow(QWidget):
             
     def popup_actions(self):
         arduino.write((15).to_bytes(1, "little")) #COMMENT FOR PROGRAM TESTING
-        print((15).to_bytes(1, byteorder="little"))
         self.endCalib=0x01 #UNCOMMENT FOR PROGRAM TESTING! 
-        self.calibMsgBox2.exec_() #Warning message
-        
+        #Warning message
+        check = self.calibMsgBox2.exec_()
+        while arduino.in_waiting==0:
+            if self.endCalib==0x01: #SO THE PROGRAM TESTING WORKS
+                self.calibMsgBox2.close()
+                self.calibMsgBox.close()
+                break
+            if check == QMessageBox.Abort:
+                self.calibMsgBox.close()
+                arduino.write(0xFF)
+                self.emergencyStop.exec_()
+                sys.stdout.flush()
+                os.execl(sys.executable, 'python', __file__, *sys.argv[1:])
+            continue
+        if self.endCalib==0x00:
+            t = arduino.read()
+
         while(self.endCalib==0x00):
             if(arduino.in_waiting==1): 
                 self.endCalib=arduino.read()
@@ -433,24 +452,20 @@ class MainWindow(QWidget):
             exit()
             
     def popup_actions2(self):
-        if self.initialFocus==False:
-            arduino.write(0x01)
-            focusCameraOk.exec_()
-        elif self.initialFocus==True:
-            if self.focusCameraOk.standardButton(self.focusCameraOk.clickedButton()) == QMessageBox.Yes:
-                arduino.write(0x02)
-            else:
-                arduino.write(0x01)
-        
-            
-    def popup_actions_init(self):
         while arduino.in_waiting==0:
-            if arduino.in_waiting>0:
-                t=arduino.read()
-                self.initiating.close()
-            #GUI locked state
+                continue
+        while self.focused==False:
+            if self.initialFocus==False:
+                arduino.write(0x01)
+                self.focusCameraOk.exec_()
+            elif self.initialFocus==True:
+                if self.focusCameraOk.standardButton(self.focusCameraOk.clickedButton()) == QMessageBox.Yes:
+                    arduino.write(0x02)
+                else:
+                    arduino.write(0x01)
+        
     
-    def on_click_linear(self, isX, isY, isZ):                            
+    def on_click_linear(self, isX, isY, isZ):                        
         controlByte = (2).to_bytes(1, byteorder="little")
         # print(controlByte)
         arduino.write(controlByte)
@@ -545,11 +560,28 @@ class MainWindow(QWidget):
             arduino.write(freqMove)
             
         arduino.flush()
-        posSavedMessage.exec_()
+
+        check=self.savingPosMessage.exec_()
+        while arduino.in_waiting==0:
+            if check==QMessageBox.Ok:  
+                self.savingPosMessage.exec_()
+            continue
+        self.savingPosMessage.close()
+        t = arduino.read()
+        t = hex(ord(t))
+        print(t)
+        self.savingPosMessage.close()
+        if t=='0x1':
+            self.posSavedMsgBox.exec_()
+        elif t=='0xe3':
+            self.samePointMsg.exec_()
+        elif t=='0xe4':
+            self.immpossibleTrajMsg.exec_()
     
     def on_click_erase(self):
         controlByte = (7).to_bytes(1, byteorder="little")
         print(controlByte)
+        self.erasedAll.exec_()
         
     def on_click_start(self):
         controlByte = (4).to_bytes(1, byteorder="little")
@@ -559,46 +591,57 @@ class MainWindow(QWidget):
         # print(controlByte)
         # print(mode)
         if self.gotta_loop.isChecked()==True:
-            # loop = (1).to_bytes(1, byteorder="little")
+            loop = (1).to_bytes(1, byteorder="little")
             arduino.write(loop)
         else:
-            # loop = (0).to_bytes(1, byteorder="little")
+            loop = (0).to_bytes(1, byteorder="little")
             arduino.write(loop)
         # print(loop)
         arduino.flush()
-        self.button_pause.setEnabled(True)
-        self.button_stop.setEnabled(True)
 
-        self.button_less_X.setEnabled(False)
-        self.button_less_Y.setEnabled(False)
-        self.button_less_Z.setEnabled(False)
-        self.button_more_X.setEnabled(False)
-        self.button_more_Y.setEnabled(False)
-        self.button_more_Z.setEnabled(False)
-        
-        self.button_less_J1.setEnabled(False)
-        self.button_less_J2.setEnabled(False)
-        self.button_less_J3.setEnabled(False)
-        self.button_more_J1.setEnabled(False)
-        self.button_more_J2.setEnabled(False)
-        self.button_more_J3.setEnabled(False)
-        self.button_less_J4.setEnabled(False)
-        self.button_less_J5.setEnabled(False)
-        self.button_less_J6.setEnabled(False)
-        self.button_more_J4.setEnabled(False)
-        self.button_more_J5.setEnabled(False)
-        self.button_more_J6.setEnabled(False)
-        
-        self.button_save_position.setEnabled(False)
-        self.button_erase_position.setEnabled(False)
-        
-        self.initiating.exec_() 
-        self.focusCamera.exec_()
+        while arduino.in_waiting==0:
+            continue
+
+        t = arduino.read()
+        t = hex(ord(t))
+        print(t)
+
+        if t=='0x01':
+            self.initiating.exec_()
+            self.button_pause.setEnabled(True)
+            self.button_stop.setEnabled(True)
+            self.button_less_X.setEnabled(False)
+            self.button_less_Y.setEnabled(False)
+            self.button_less_Z.setEnabled(False)
+            self.button_more_X.setEnabled(False)
+            self.button_more_Y.setEnabled(False)
+            self.button_more_Z.setEnabled(False)            
+            self.button_less_J1.setEnabled(False)
+            self.button_less_J2.setEnabled(False)
+            self.button_less_J3.setEnabled(False)
+            self.button_more_J1.setEnabled(False)
+            self.button_more_J2.setEnabled(False)
+            self.button_more_J3.setEnabled(False)
+            self.button_less_J4.setEnabled(False)
+            self.button_less_J5.setEnabled(False)
+            self.button_less_J6.setEnabled(False)
+            self.button_more_J4.setEnabled(False)
+            self.button_more_J5.setEnabled(False)
+            self.button_more_J6.setEnabled(False)            
+            self.button_save_position.setEnabled(False)
+            self.button_erase_position.setEnabled(False)
+            self.button_start.setEnabled(False)
+
+            self.focusCamera.exec_()
+        elif t=='0xe1':
+            self.zeroPointsMsg.exec_()
+        elif t=='0xe2':
+            self.notEnoughPointsMsg.exec_()
+
         self.initialFocus = False
         self.focused = False
-        print("started")
         
-        self.button_start.setEnabled(False)
+       
     
     def on_click_pause(self):
         controlByte = (5).to_bytes(1, byteorder="little")
@@ -606,9 +649,11 @@ class MainWindow(QWidget):
         if self.isPaused==False:
             arduino.write((1).to_bytes(1, byteorder="little"))
             self.isPaused=True
+            self.paused.exec_()
         else:
             arduino.write((0).to_bytes(1, byteorder="little"))
             self.isPaused=False
+            self.resume.exec_()
 
         
         
@@ -707,7 +752,7 @@ class myThread(QThread):
                         if p3[1]<30:
                             # print("TOO FAR UP")
                             arduino.write((6).to_bytes(1, byteorder="little"))
-                            arduino.write(-(1).to_bytes(1, byteorder="little", signed=True))
+                            arduino.write((-1).to_bytes(1, byteorder="little", signed=True))
                             self.wasActiveM6=True
                         elif p3[1]>210:
                             # print("TOO FAR DOWN")
@@ -736,16 +781,23 @@ class myThread(QThread):
         self.isFollowing=False
         arduino.write((0).to_bytes(2, byteorder="little"))
         arduino.flush()
+                                   
             
-                
-            
-            
-        
+# class controlThread(QThread):
+
+#     def __init__(self):
+#         super(controlThread, self).__init__()     
+#     def run(self):
+#         while arduino.in_waiting==0:
+#             continue
+#         t=arduino.read()
+#         return t
+
 
 if __name__ == '__main__':
     
-    # arduino = serial.Serial('/dev/ttyACM0', 115200)
-    arduino = serial.Serial('COM3', 115200)    
+    # arduino = serial.Serial('/dev/ttyACM0', 115200) #LINUX
+    arduino = serial.Serial('COM3', 115200)    #WINDOWS, MAYBE OTHER COM PORT, CHECK AT DEVICE MANAGER
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
