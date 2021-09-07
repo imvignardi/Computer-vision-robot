@@ -1,3 +1,12 @@
+#   CÓDIGO GENERADO A 07/09/2021
+#   Ignacio Martínez Vignardi
+#   Ingeniería Electrónica Industrial y Automática
+#   RPi_Controlador_v1_0_0
+#   
+#   Este código corresponde con el realizado para la fecha de entrega
+#   del TFG, Diseño y programación de un robot articulado filmográfico 
+#   con visión por computador  
+
 import sys
 import time
 import serial
