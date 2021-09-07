@@ -7,8 +7,8 @@
    del TFG, Diseño y programación de un robot articulado filmográfico 
    con visión por computador  
 */
-#include <math.h>
 
+#include <math.h>
 int *controlValues;
 
 const int motor1 = 53;
@@ -88,12 +88,7 @@ byte previousControlByte = 0x00;
 //0x00 standby
 //0x01 move J
 //0x02 move linear
-//0x03 save position
-//0x04 begin movement
-//0x05 pause
-//0x06 stop
-//0x07 erase positions
-//0x10 follow object
+//
 //0x0F calibrate 
 
 volatile uint16_t inputFreq[6] = {0, 0, 0, 0, 0, 0};
@@ -165,10 +160,17 @@ void loop() {
   //15 -> 0x0F
   if(calibrated == false && Serial.available()==1) {
     controlByte=Serial.read();
-    digitalWrite(2, HIGH);
+//    digitalWrite(2, HIGH);
   }
   
   while(calibrated==false && controlByte==0x0F) {
+    if(Serial.available()>=1) {
+      byte emergencyByte=Serial.read();
+      calibrated=false;
+      calibrationCount=0;
+      break;
+    }   
+    
     if(calibrationCount == 0) {
       //Given 400 steps/rev (Have to change if different) and that at J0 (50:1 reducer) m1 @ 450 rpm -> 9 rpm output
       //Each pulse 1.8º wo\ reducer, 0.036º w\ reducer -> need 140º, total of 3888.89 pulses -> 3889
@@ -185,7 +187,7 @@ void loop() {
         
     if(calibrationCount == 1 && digitalRead(limitSwitch[0])==LOW) {
       //Given 400 steps/rev (Have to change if different) and that at J0 (50:1 reducer) m1 @ 450 rpm -> 9 rpm output
-      Serial.println("1 reached");
+      //Serial.println("1 reached");
       desiredPulses[0]=15556; //return 140º 400 pulses do 360/50 degrees caused by the reducer
       actualPulses[0]=0;
       TIMSK0 = 0;
@@ -217,7 +219,7 @@ void loop() {
       //Given 400 steps/rev (Have to change if different) and that at J0 (50:1 reducer) m1 @ 450 rpm -> 9 rpm output
       desiredPulses[1]=6667; //return 60º
       actualPulses[1]=0;
-      Serial.println("2 reached");
+      //Serial.println("2 reached");
       TIMSK1 = 0;
       TCCR1A, TCCR1B, TCNT1, OCR1A = 0;
       OCR1A = 20;
@@ -245,7 +247,7 @@ void loop() {
       //Given 400 steps/rev (Have to change if different) and that at J0 (50:1 reducer) m1 @ 450 rpm -> 9 rpm output
       desiredPulses[2]=3333; //Check angle, 30º
       actualPulses[2]=0;
-      Serial.println("3 reached");
+      //Serial.println("3 reached");
       TIMSK2 = 0;
       TCCR2A, TCCR2B, TCNT2, OCR2A = 0;
       OCR2A = 20;
@@ -275,7 +277,7 @@ void loop() {
       //Given 400 steps/rev and that at J4 (48:1 reducer)
       desiredPulses[3]=4800; //return 45º, in this case the reducer is 48:1
       actualPulses[3]=0;
-      Serial.println("4 reached");
+      //Serial.println("4 reached");
       TIMSK3 = 0;
       TCCR3A, TCCR3B, TCNT3, OCR3A = 0;
       OCR3A = 20;
@@ -303,7 +305,7 @@ void loop() {
     if(calibrationCount == 9 && digitalRead(limitSwitch[4])==LOW) {
       desiredPulses[4]=3200; //return 90º, 16:1 reducer
       actualPulses[4]=0;
-      Serial.println("5 reached");
+      //Serial.println("5 reached");
       TIMSK4 = 0;
       TCCR4A, TCCR4B, TCNT4, OCR4A = 0;
       OCR4A = 20;
@@ -331,7 +333,7 @@ void loop() {
       //Given 400 steps/rev (Have to change if different) and that at J0 (16:1 reducer) m1 @ 450 rpm -> 28.125 rpm output
       desiredPulses[5]=1067; //return 30º, 16:1 reducer
       actualPulses[5]=0;
-      Serial.println("6 reached");
+      //Serial.println("6 reached");
       TIMSK5 = 0;
       TCCR5A, TCCR5B, TCNT5, OCR5A = 0;
       OCR5A = 20;
@@ -365,8 +367,8 @@ void loop() {
     //receive controlByte
     previousControlByte=controlByte;
     controlByte = Serial.read();
-    Serial.print("cB: ");
-    Serial.println(controlByte);
+    //Serial.print("cB: ");
+    //Serial.println(controlByte);
     firstPass=false;
   }
     
@@ -378,7 +380,7 @@ void loop() {
     //we need to do a forward kinematics calculation.
     //firstPass is used to execute the code only once
       if(firstPass==false){
-        Serial.println("Clear cb=0x00");
+        //Serial.println("Clear cb=0x00");
         for(int i =0; i<=5; i++) {
           inputFreq[i]=0;
           desiredPulses[i]=0;
@@ -433,7 +435,7 @@ void loop() {
     //We need the speed of the motor and the direction
     //Only one joint must move
       if(firstPass==false) {
-        Serial.println("Joint mode");
+        //Serial.println("Joint mode");
         while(Serial.available()!=4) {
         //Wait till all bytes reach
         ;
@@ -442,7 +444,7 @@ void loop() {
         byte2 = Serial.read();
         movFreq=0;
         movFreq = byteToInt16(byte1, byte2);
-        Serial.println(movFreq);
+        //Serial.println(movFreq);
         movType = Serial.read();
         movDir = Serial.read();
 
@@ -532,12 +534,14 @@ void loop() {
           obtainJointVariation(movType, saved_array[arrayReader][3], 0);
           arrayReader++;
         }
-        else if((arrayReader==0 && saved_array[0][3]==0) || saved_array[1][3]==0)) {
+        else if((arrayReader==0 && saved_array[0][3]==0) || saved_array[1][3]==0) {
           if(saved_array[0][3]==0){
             Serial.write(0xE1); //No points in array
+            controlByte=0x00;
           }
           else
             Serial.write(0xE2); //Not enough points in array
+            controlByte=0x00;
           break; //break case
         }
         else if(arrayReader==1) {
@@ -687,14 +691,14 @@ void loop() {
     //After the settings the timer is unmasked.
     //Everything has to be done without interrupts enabled, so the motors start at the same time. 
     noInterrupts();
-    Serial.println("Enabling motors");
+    ////Serial.println("Enabling motors");
     if(inputFreq[0]>0) {   
       TCCR0A = 0;
       controlValues = adjuster(inputFreq[0], 8);   
       OCR0A = controlValues[0];
       TCCR0A |= (1 << WGM01);
-//      Serial.println(controlValues[0]);
-//      Serial.println(controlValues[1]);
+//      //Serial.println(controlValues[0]);
+//      //Serial.println(controlValues[1]);
       if(controlValues[1]==1) {
         TCCR0B |= (0 << CS02) | (0 << CS01) | (1 << CS00);
       }
@@ -864,7 +868,8 @@ void obtainJointVariation(byte linearType, int maxFreq, byte way) {
     x=saved_array[arrayReader][0];
     y=saved_array[arrayReader][1];
     z=saved_array[arrayReader][2];
-    
+    double aJ5 = saved_array[arrayReader][4];
+    double aJ6 = saved_array[arrayReader][5];
   }
   else if(linearType == 10) {
     //For calculating if the movement is possible
@@ -895,27 +900,32 @@ void obtainJointVariation(byte linearType, int maxFreq, byte way) {
     deltaJ[1] = j2a - aJ2;//0.11
     deltaJ[2] = j3a - aJ3;//-0.12
     deltaJ[3] = j4a - aJ4;//0.01
+    if(controlByte==0x04) {
+      deltaJ[4] = j3a - aJ3;//-0.12
+      deltaJ[5] = j4a - aJ4;//0.01
+    }
        
     if(controlByte==0x02) {
-      Serial.println("New angles");
-      Serial.println(aJ1);
-      Serial.println(aJ2);
-      Serial.println(aJ3);
-      Serial.println(aJ4);
-      Serial.println("Variation");
-      Serial.println(deltaJ[0]);
-      Serial.println(deltaJ[1]);
-      Serial.println(deltaJ[2]);
-      Serial.println(deltaJ[3]);
+      //Serial.println("New angles");
+      //Serial.println(aJ1);
+      //Serial.println(aJ2);
+      //Serial.println(aJ3);
+      //Serial.println(aJ4);
+      //Serial.println("Variation");
+      //Serial.println(deltaJ[0]);
+      //Serial.println(deltaJ[1]);
+      //Serial.println(deltaJ[2]);
+      //Serial.println(deltaJ[3]);
       j1a = aJ1;
       j2a = aJ2;
       j3a = aJ3;
       j4a = aJ4;
     }
+    
     //Since microcontrollers and any digital electronic device works discretly, the accuracy of the motors movement has to be improved.
     //by saving some of the floating point data in a remainder. Afterwards this variable must be used to recover the lost step in the motor.
     //This is particularly important since the resolution is so high (1mm) that some motors need a movement of less than 1 pulse.
-    Serial.println("Desired Pulses");
+    //Serial.println("Desired Pulses");
     desiredPulses[0] = round((deltaJ[0]/reductionRatio1)*100000)/100000;
     remainder[0]= remainder[0]+(desiredPulses[0]-trunc(desiredPulses[0]));
     desiredPulses[1] = round((deltaJ[1]/reductionRatio2)*100000)/100000;
@@ -948,7 +958,7 @@ void obtainJointVariation(byte linearType, int maxFreq, byte way) {
           desiredPulses[i]=desiredPulses[i]+1;
           remainder[i] = 0;
       }
-      Serial.println(desiredPulses[i]);
+      //Serial.println(desiredPulses[i]);
     }
   
     float slow=0;
@@ -959,29 +969,29 @@ void obtainJointVariation(byte linearType, int maxFreq, byte way) {
             slowestMotor = i;
         }
     }
-    Serial.println("Max Frequency");
-    Serial.println(maxFreq);
+    //Serial.println("Max Frequency");
+    //Serial.println(maxFreq);
     inputFreq[slowestMotor] = maxFreq;
     float time_to_complete = slow/inputFreq[slowestMotor]; 
-    Serial.println("Time to complete");
-    Serial.println(time_to_complete); 
+    //Serial.println("Time to complete");
+    //Serial.println(time_to_complete); 
 
-    Serial.println("Frequencies");
+    //Serial.println("Frequencies");
     for(int i = 0; i<=5; i++) {
       inputFreq[i] = (int)(desiredPulses[i]/time_to_complete); 
       if(inputFreq[i]>0) {      
         numberOfActiveMotors++;
       }
-      if(inputFreq[i]<5){
-        Serial.println(inputFreq[i]);
-      }
-      else {
-        Serial.println(inputFreq[i]);
-      }
+//      if(inputFreq[i]<5){
+//        ////Serial.println(inputFreq[i]);
+//      }
+//      else {
+//        //Serial.println(inputFreq[i]);
+//      }
     }
     
-    Serial.print("Number of active motors: ");
-    Serial.println(numberOfActiveMotors);
+    //Serial.print("Number of active motors: ");
+    //Serial.println(numberOfActiveMotors);
   }
   else if(linearType==10) {
     position_check[0] = aJ1;
@@ -1038,14 +1048,14 @@ void fk_calc(){
       }
     }
   }
-  Serial.print("x: ");
-  Serial.println(T05[0][3]);
+  //Serial.print("x: ");
+  //Serial.println(T05[0][3]);
   x = T05[0][3];
-  Serial.print("y: ");
-  Serial.println(T05[1][3]);
+  //Serial.print("y: ");
+  //Serial.println(T05[1][3]);
   y = T05[1][3];
-  Serial.print("z: ");
-  Serial.println(T05[2][3]);
+  //Serial.print("z: ");
+  //Serial.println(T05[2][3]);
   z = T05[2][3];
 }
 
@@ -1055,45 +1065,48 @@ void save_position() {
   saved_array[myPositionInArray][1] = y; //
   saved_array[myPositionInArray][2] = z; //
   saved_array[myPositionInArray][3] = movFreq; //
+  saved_array[myPositionInArray][4] = j5a;
+  saved_array[myPositionInArray][5] = j6a;
 
-/*  saved_array[0][0] = 447; //UNCOMMENT TO TEST VALUES
-  saved_array[0][1] = -375; //
-  saved_array[0][2] = 474; //
-  saved_array[0][3] = 633; //
-  saved_array[1][0] = -447; //UNCOMMENT TO TEST VALUES
-  saved_array[1][1] = 375; //
-  saved_array[1][2] = 474; //
-  saved_array[1][3] = 633; //
-  myPositionInArray = 1; //
-  */
-   
+//  saved_array[0][0] = 447; //UNCOMMENT TO TEST VALUES
+//  saved_array[0][1] = -375; //
+//  saved_array[0][2] = 474; //
+//  saved_array[0][3] = 633; //
+//  saved_array[1][0] = -447; //UNCOMMENT TO TEST VALUES
+//  saved_array[1][1] = 375; //
+//  saved_array[1][2] = 474; //
+//  saved_array[1][3] = 633; //
+//  myPositionInArray = 1; //
   int a,b,c=0;
   a=447+447;
   b=-375-375;
   c=0; //bidimensional
   
-  if(myPositionInArray==0)
+  if(myPositionInArray==0) {
     myPositionInArray++; //Pos=0 is the initial position
+    Serial.write(0x01);
+  }
   else if(myPositionInArray>0) {
     xVal, yVal, zVal = 0;
     int num=0;
     do {   
-      Serial.println(num);
+      //Serial.println(num);
       if(num==0 && saved_array[myPositionInArray-1][0] == saved_array[myPositionInArray][0] && saved_array[myPositionInArray-1][1] == saved_array[myPositionInArray][1] && saved_array[myPositionInArray-1][2] == saved_array[myPositionInArray][2]) {
         Serial.write(0xE3); //Error, trying to save same point
+        controlByte=0x00;
         break;
       }   
       num++;
       xVal = (saved_array[myPositionInArray-1][0]+num)/a;
       yVal = ((num/(saved_array[myPositionInArray][0]-saved_array[myPositionInArray-1][0]))*(saved_array[myPositionInArray][1]-saved_array[myPositionInArray-1][1]))+saved_array[myPositionInArray-1][1];
-//      zVal = ((num/(saved_array[myPositionInArray][0]-saved_array[myPositionInArray-1][0]))*(saved_array[myPositionInArray][2]-saved_array[myPositionInArray-1][2]))+saved_array[myPositionInArray-1][2];
-      zVal=474;
+      zVal = ((num/(saved_array[myPositionInArray][0]-saved_array[myPositionInArray-1][0]))*(saved_array[myPositionInArray][2]-saved_array[myPositionInArray-1][2]))+saved_array[myPositionInArray-1][2];
       obtainJointVariation(10,0,0);
       
       //j5 and j6 dont affect the x, y and z value
       if(position_check[0]>140 || position_check[0]<140 || position_check[1]<35 || position_check[1]>140 || position_check[2]<40 || position_check[2]>180 || position_check[3]<45 || position_check[3]>125) {
-        Serial.println("Impossible trajectory");
+        //Serial.println("Impossible trajectory");
         Serial.write(0xE4); //Error, cant realize movement
+        controlByte=0x00;
         break;
       }  
       else if(xVal == saved_array[myPositionInArray][0]) {
@@ -1124,7 +1137,6 @@ void print_my_positions() {
 void until_focus_confirm() {
   bool confirmed = false;
   byte check = 0;
-  while(j1a)
   Serial.write(0x01);
   while(confirmed==false) {
     if(Serial.available()>0) {
@@ -1144,10 +1156,10 @@ void until_focus_confirm() {
 int * adjuster(int x, int bits) {
   bool done = false;
   float cmp = 0.0;
-  static int arr[2] = {0, 0}
-   
+  static int arr[2] = {0, 0};
+  
   cmp = (16000000L/(2*1L*x))-1;
-//  Serial.print("prescaler 1: ");
+//  //Serial.print("prescaler 1: ");
 //  Serial.println(cmp);
 //  Serial.println(" ");
   if((cmp<256 && bits==8) || (cmp<65535 && bits==16)) {
@@ -1208,11 +1220,11 @@ ISR(TIMER0_COMPA_vect){
     digitalWrite(motor1, !digitalRead(motor1));
     actualPulses[0]++;
     if((movDir==0x01 && actualPulses[0]%2!=0 && controlByte==0x01) || (motorDirection[0]==1 && actualPulses[0]%2!=0 && controlByte==0x04)) {
-      j1a+=reductionRatio1;
+      j1a-=reductionRatio1;
       //Serial.println(j1a);
     }
     else if((movDir==0xFF && actualPulses[0]%2!=0 && controlByte==0x01) || (motorDirection[0]==-1 && actualPulses[0]%2!=0 && controlByte==0x04)) {
-      j1a-=reductionRatio1;
+      j1a+=reductionRatio1;
       //Serial.println(j1a);
     }
   }  
@@ -1241,14 +1253,13 @@ ISR(TIMER1_COMPA_vect){
     digitalWrite(motor2, !digitalRead(motor2));
     actualPulses[1]++;
     if((movDir==0x01 && actualPulses[1]%2!=0 && controlByte==0x01) || (motorDirection[1]==1 && actualPulses[1]%2!=0 && controlByte==0x04)) {
-      j2a+=reductionRatio2;  
+      j2a-=reductionRatio2;  
 //      Serial.println(j2a);
     }
     else if((movDir==0xFF && actualPulses[1]%2!=0 && controlByte==0x01)|| (motorDirection[1]==-1 && actualPulses[1]%2!=0 && controlByte==0x04)) {
-      j2a-=reductionRatio2; 
+      j2a+=reductionRatio2; 
 //      Serial.println(j2a);
     }
-
   }  
   else if(actualPulses[1]==desiredPulses[1] && (controlByte==0x02 || controlByte==0x04)){
     totalPulses[1] = totalPulses[1] + actualPulses[1];
@@ -1272,11 +1283,11 @@ ISR(TIMER2_COMPA_vect){
     digitalWrite(motor3, !digitalRead(motor3));
     actualPulses[2]++;
     if((movDir==0x01 && actualPulses[2]%2!=0 && controlByte==0x01) || (motorDirection[2]==1 && actualPulses[2]%2!=0 && controlByte==0x04)) {
-      j3a+=reductionRatio3;  
+      j3a-=reductionRatio3;  
 //      Serial.println(j2a);
     }
     else if((movDir==0xFF && actualPulses[2]%2!=0 && controlByte==0x01)|| (motorDirection[2]==-1 && actualPulses[2]%2!=0 && controlByte==0x04)) {
-      j3a-=reductionRatio3; 
+      j3a+=reductionRatio3; 
 //      Serial.println(j2a);
     }
   }  
@@ -1302,11 +1313,11 @@ ISR(TIMER3_COMPA_vect){
     digitalWrite(motor4, !digitalRead(motor4));
     actualPulses[3]++;
     if((movDir==0x01 && actualPulses[3]%2!=0 && controlByte==0x01) || (motorDirection[3]==1 && actualPulses[3]%2!=0 && controlByte==0x04)) {
-      j4a+=reductionRatio4;  
+      j4a-=reductionRatio4;  
 //      Serial.println(j2a);
     }
     else if((movDir==0xFF && actualPulses[3]%2!=0 && controlByte==0x01) || (motorDirection[3]==-1 && actualPulses[3]%2!=0 && controlByte==0x04)) {
-      j4a-=reductionRatio4; 
+      j4a+=reductionRatio4; 
 //      Serial.println(j2a);
     }
   }  
@@ -1331,11 +1342,11 @@ ISR(TIMER4_COMPA_vect){
     digitalWrite(motor5, !digitalRead(motor5));
     actualPulses[4]++;
     if((movDir==0x01 && actualPulses[4]%2!=0 && controlByte==0x01) || (motorDirection[4]==1 && actualPulses[4]%2!=0 && controlByte==0x04)) {
-      j5a+=reductionRatio5;  
+      j5a-=reductionRatio5;  
 //      Serial.println(j2a);
     }
     else if((movDir==0xFF && actualPulses[4]%2!=0 && controlByte==0x01) || (motorDirection[4]==-1 && actualPulses[4]%2!=0 && controlByte==0x04)) {
-      j5a-=reductionRatio5; 
+      j5a+=reductionRatio5; 
 //      Serial.println(j2a);
     }
   }  
