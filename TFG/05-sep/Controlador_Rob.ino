@@ -1049,13 +1049,13 @@ void fk_calc(){
 }
 
 void save_position() {
-//  fk_calc(); //COMMENT TO TEST
-//  saved_array[myPositionInArray][0] = x; //COMMENT THE BLOCK TO TEST
-//  saved_array[myPositionInArray][1] = y; //
-//  saved_array[myPositionInArray][2] = z; //
-//  saved_array[myPositionInArray][3] = movFreq; //
+  fk_calc(); //COMMENT TO TEST
+  saved_array[myPositionInArray][0] = x; //COMMENT THE BLOCK TO TEST
+  saved_array[myPositionInArray][1] = y; //
+  saved_array[myPositionInArray][2] = z; //
+  saved_array[myPositionInArray][3] = movFreq; //
 
-  saved_array[0][0] = 447; //UNCOMMENT TO TEST VALUES
+/*  saved_array[0][0] = 447; //UNCOMMENT TO TEST VALUES
   saved_array[0][1] = -375; //
   saved_array[0][2] = 474; //
   saved_array[0][3] = 633; //
@@ -1064,6 +1064,8 @@ void save_position() {
   saved_array[1][2] = 474; //
   saved_array[1][3] = 633; //
   myPositionInArray = 1; //
+  */
+   
   int a,b,c=0;
   a=447+447;
   b=-375-375;
@@ -1141,9 +1143,8 @@ void until_focus_confirm() {
 int * adjuster(int x, int bits) {
   bool done = false;
   float cmp = 0.0;
-  static int arr[2] = {0, 0};
-  
-  //x is actually inputFreq*2, so we can form an square wave
+  static int arr[2] = {0, 0}
+   
   cmp = (16000000L/(2*1L*x))-1;
 //  Serial.print("prescaler 1: ");
 //  Serial.println(cmp);
