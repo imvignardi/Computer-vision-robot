@@ -1,5 +1,14 @@
-
+/* CÓDIGO GENERADO A 07/09/2021
+   Ignacio Martínez Vignardi
+   Ingeniería Electrónica Industrial y Automática
+   Controlador_Rob_v1_0_0
+   
+   Este código corresponde con el realizado para la fecha de entrega
+   del TFG, Diseño y programación de un robot articulado filmográfico 
+   con visión por computador  
+*/
 #include <math.h>
+
 int *controlValues;
 
 const int motor1 = 53;
@@ -79,7 +88,12 @@ byte previousControlByte = 0x00;
 //0x00 standby
 //0x01 move J
 //0x02 move linear
-//
+//0x03 save position
+//0x04 begin movement
+//0x05 pause
+//0x06 stop
+//0x07 erase positions
+//0x10 follow object
 //0x0F calibrate 
 
 volatile uint16_t inputFreq[6] = {0, 0, 0, 0, 0, 0};
