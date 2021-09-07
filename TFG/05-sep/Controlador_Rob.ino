@@ -528,10 +528,11 @@ void loop() {
       if(firstPass == false || finished == true) {
         firstPass = true;
         if(arrayReader==0 && saved_array[0][3]!=0 && saved_array[1][3]!=0) {
+          Serial.write(0x01);
           obtainJointVariation(movType, saved_array[arrayReader][3], 0);
           arrayReader++;
         }
-        else if(arrayReader==0 && (saved_array[0][3]==0 || saved_array[1][3]==0)) {
+        else if((arrayReader==0 && saved_array[0][3]==0) || saved_array[1][3]==0)) {
           if(saved_array[0][3]==0){
             Serial.write(0xE1); //No points in array
           }
